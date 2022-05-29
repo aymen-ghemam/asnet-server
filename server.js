@@ -94,7 +94,6 @@ app.post('/api/images', upload.single('image'),(req, res) => {
 // ################### Routes ###################
 
 app.post('/api/login', (req, res) => {
-  console.log(req.body);
   // check if the user exists
   connection.execute(`select id_user, type, nom, prenom from user where email = ? and password = ?`, [req.body.email, req.body.password], (err, result)=>{
       if (err) res.json({error: true, msg: 'Database error!!'})
@@ -129,7 +128,6 @@ app.get('/api/admin', verifyToken, (req, res) => {
 })
 
 app.post('/api/users', (req, res) => {
-  console.log(req.body);
   connection.execute(`select email from user where email = ?`, [req.body.email], async (err, result) => {
       if(err) console.log(err);
       else if(result[0] != undefined) res.json({msg: 'email already in use !'})
@@ -137,7 +135,7 @@ app.post('/api/users', (req, res) => {
         const hashedPassword = await bcrypt.hash(req.body.password, 10);
         connection.execute(
           `insert into user (nom, prenom, email, password, numero, sexe, date_naissance, photo, type, date_inscription) 
-          values(?, ?, ?, ?, ?, ?, ?, ?, 0 , now() )`
+          values(?, ?, ?, ?, ?, ?, ?, ?, 2 , now() )`
             , [req.body.nom, req.body.prenom, req.body.email, req.body.password, req.body.numero, req.body.sexe, req.body.naissance, req.body.photo]
             ,(err, user) => {
             if(err) {
@@ -159,14 +157,15 @@ app.post('/api/specialistes', (req, res) => {
       else {
           connection.execute(
             `insert into user (nom, prenom, email, password, numero, sexe, date_naissance, photo, type, date_inscription) 
-            values(?, ?, ?, ?, ?, ?, ?, ?, 0 , now() )`
+            values(?, ?, ?, ?, ?, ?, ?, ?, 1 , now() )`
               ,[req.body.nom, req.body.prenom, req.body.email, req.body.password, req.body.numero, req.body.sexe, req.body.naissance, req.body.photo]
               ,(err, user) => {
               if(err) {
                   res.json({error: true, msg:'DATABASE error!'})
               }
               else {
-                  connection.execute(`insert into specialiste(id_specialiste) values(?)`, [user.insertId], (err, specialiste)=> {
+                  connection.execute(`insert into specialiste(id_specialiste, specialite, etat, photo_licence) values(?, ?, ?, 0, ?)`
+                  , [user.insertId, req.body.specialite, licence], (err, specialiste)=> {
                       if(err) {
                           res.json({error: true, msg:'DATABASE error!'})
                       }
@@ -223,27 +222,41 @@ app.post('/api/articles', verifyToken, (req, res) => {
 });
 
 app.get('/api/articles', (req, res) => {  
-  connection.execute(`select A.id_article, A.date_creation, A.titre, A.id_specialiste, S.contenu_section from article A, section S 
-  where S.id_article = A.id_article and S.indice = 0 order by id_article asc`
-  ,(err, articles)=> {
+  connection.execute(`select * from article`
+  ,(err, result)=> {
     if(err) {
       console.log(err);
       res.json({error: true, msg: 'Database error!'});
     }
     else{
-      res.status(200).json({error: false, articles})
+      connection.execute(`select nom, id_article from tag`, (err, tags)=>{
+        if(err) {
+          console.log(err);
+          res.json({error: true, msg: 'Database error!'});
+        }
+        else {
+          let articles = [];
+          result.map(element=>{
+            articles.push({...element, tags: tags.filter(tag=>tag.id_article === element.id_article) })
+            // console.log(tags.filter(tag=>tag.id_article === element.id_article));
+          })
+
+          res.status(200).json({error: false, articles})
+        }
+      });
+      
     }
   })
 });
 
 app.get('/api/articles/:id', (req, res) => {  
-  connection.execute(`select * from article where id_article = ${req.params.id}`, (err, articles)=> {
+  connection.execute(`select * from article where id_article = ?`, [req.params.id], (err, articles)=> {
     if(err) {
       console.log(err);
       res.json({error: true, msg: 'Database error!'});
     }
     else{
-      connection.execute(`select titre_section, contenu_seciton, image_section, indice from section 
+      connection.execute(`select titre_section, contenu_section, image_section, indice from section 
       where id_article = ?`, [req.params.id], (err, sections) => {
         if(err) {
           console.log(err);
@@ -254,7 +267,7 @@ app.get('/api/articles/:id', (req, res) => {
             error: false,
             article: {
               ...articles[0],
-              sections
+              sections: sections
             }
           })
         }
@@ -298,10 +311,10 @@ app.put('/api/articles/:id', verifyToken, (req, res) => {
 
 
 // evenement
-app.post('/api/evenements', verifyToken, (req, res) => {  
-  if(typeof req.user !== undefined){
-    connection.execute(`insert into evenement(date_evenement, titre, desc, image, id_admin) values (?, ?, ?, ?, ?)`
-    , [req.body.date, req.body.titre, req.body.desc, req.body.image, req.user.id_admin], (err, evenement)=>{
+app.post('/api/evenements', (req, res) => {  
+  // if(typeof req.user !== undefined){
+    connection.execute(`insert into evenement (date_evenement, titre, description, image, id_admin) values (?, ?, ?, ?, ?)`
+    , [req.body.date, req.body.titre, req.body.description, req.body.image, 1], (err, evenement)=>{
       if(err) {
         console.log(err);
         res.json({error: true, msg: 'database error'});
@@ -310,24 +323,24 @@ app.post('/api/evenements', verifyToken, (req, res) => {
         res.status(200).json({error: false})
       }
     })
-  }
-  else res.status(403).json({error: true})
+  // }
+  // else res.status(403).json({error: true})
 });
 
-app.get('/api/evenements', verifyToken, (req, res) => {  
-  connection.execute(`select * from evenement order by id_evenement asc`
+app.get('/api/evenements', (req, res) => {  
+  connection.execute(`select * from evenement order by id_evenement desc`
   ,(err, evenements)=> {
     if(err) {
       console.log(err);
       res.json({error: true, msg: 'Database error!'});
     }
     else{
-      res.status(200).json({error: false, evenements})
+      res.status(200).json({error: false, evenements: evenements})
     }
   })
 });
 
-app.get('/api/evenements/:id', verifyToken, (req, res) => {  
+app.get('/api/evenements/:id', (req, res) => {  
   connection.execute('select * from evenement where id_evenement = ?', [req.params.id], (err, evenements)=>{
     if(err) {
       console.log(err);
@@ -335,6 +348,19 @@ app.get('/api/evenements/:id', verifyToken, (req, res) => {
     }
     else {
       res.status(200).json({error: false, evenement: evenements[0]});
+    }
+  })
+});
+
+app.get('/api/actualites', (req, res) => {  
+  connection.execute(`select * from evenement order by id_evenement desc limit 5`
+  ,(err, evenements)=> {
+    if(err) {
+      console.log(err);
+      res.json({error: true, msg: 'Database error!'});
+    }
+    else{
+      res.status(200).json({error: false, evenements: evenements})
     }
   })
 });

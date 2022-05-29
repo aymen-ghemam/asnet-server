@@ -22,7 +22,9 @@ DEFAULT CHARACTER SET = utf8;
 
 CREATE TABLE IF NOT EXISTS specialiste (
   id_specialiste INT NOT NULL,
+  specialite varchar(100) not null,
   etat tinyint not null default 0,
+  photo_licence varchar(200) not null,
   primary key(id_specialiste),
   foreign key (id_specialiste) references user(id_user)
 )
@@ -31,21 +33,20 @@ DEFAULT CHARACTER SET = utf8;
 
 
 
-CREATE TABLE IF NOT EXISTS formulaire (
-	id_formulaire int not null auto_increment,
-    `desc` varchar(500) , 
-	photo_licence varchar(200) not null,
-    photo_carte varchar(200) not null,
-    id_specialiste int not null,
-    primary key (id_formulaire),
-    foreign key (id_specialiste) references specialiste(id_specialiste)
-)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8;
+-- CREATE TABLE IF NOT EXISTS formulaire (
+-- 	id_formulaire int not null auto_increment,
+--     `desc` varchar(500) , 
+-- 	photo_licence varchar(200) not null,
+--     id_specialiste int not null,
+--     primary key (id_formulaire),
+--     foreign key (id_specialiste) references specialiste(id_specialiste)
+-- )
+-- ENGINE = InnoDB
+-- DEFAULT CHARACTER SET = utf8;
 
 CREATE TABLE IF NOT EXISTS `admin`(
     id_admin int not null auto_increment,           
-    useranme varchar(100),
+    username varchar(100),
     `password` varchar(400),
     nom varchar(100),
     primary key(id_admin)
@@ -69,6 +70,8 @@ CREATE TABLE IF NOT EXISTS article(
     date_creation varchar(200) not null,
     titre varchar(200) not null,
     id_specialiste int not null,
+    `image` varchar(200) default null,
+    description varchar(1000),
     primary key(id_article),
     foreign key (id_specialiste) references specialiste(id_specialiste)
 )
@@ -79,7 +82,7 @@ CREATE TABLE IF NOT EXISTS section(
     id_section int not null auto_increment,           
     titre_section varchar(200) not null,
     contenu_section varchar(1000) not null,
-    image_section varchar(2000) default null,
+    image_section varchar(200) default null,
     indice int default 0 not null,
     id_article int not null,
     primary key(id_section),
@@ -92,7 +95,7 @@ CREATE TABLE IF NOT EXISTS evenement(
     id_evenement int not null auto_increment,           
     date_evenement date not null,
     titre varchar(200) not null,
-    `desc` varchar(1000) not null,
+    `description` varchar(1000) not null,
     `image` varchar(200) not null,
     id_admin int not null,
     primary key(id_evenement),
