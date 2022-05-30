@@ -170,8 +170,9 @@ app.post('/api/specialistes', (req, res) => {
                   res.json({error: true, msg:'DATABASE error!'})
               }
               else {
-                  connection.execute(`insert into specialiste(id_specialiste, specialite, etat, photo_licence) values(?, ?, ?, 0, ?)`
-                  , [user.insertId, req.body.specialite, licence], (err, specialiste)=> {
+                  console.log(req.body);
+                  connection.execute(`insert into specialiste(id_specialiste, specialite, photo_licence, etat) values(?, ?, ?, 0)`
+                  , [user.insertId, req.body.specialite, req.body.licence], (err, specialiste)=> {
                       if(err) {
                           res.json({error: true, msg:'DATABASE error!'})
                       }
@@ -428,7 +429,7 @@ io.on('connection', (socket, )=>{
   if(user){
     socket.join(roomID);
     socket.on('send_message', (message)=>{
-      // io.in(roomId).emit('message', message)    
+      // io.in(roomId).emit('message', message)
       socket.to(roomID).emit('receive_message', message);
       connection.execute(
       `insert into message (text, date_message, emeteur, recepteur) values (? , now(), ?, ?)`
