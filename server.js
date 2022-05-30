@@ -4,7 +4,8 @@ const   express = require('express'),
         jwt = require('jsonwebtoken'),
         path = require('path'),
         multer = require('multer'),
-        bcrypt = require('bcrypt');
+        bcrypt = require('bcrypt'),
+        cors = require('cors')
 
 const JWT_STRING = process.env.JWT_STRING;
 const PORT = process.env.PORT || 3000;
@@ -60,12 +61,17 @@ const verifyToken = (req, res, next) => {
 
 const app = express();
 const server = require('http').createServer(app);
-const io = require('socket.io')(server);
+const io = require('socket.io')(server, {
+  cors: {
+    origin: "*",
+  },
+ });
 // io.on('connection', () => { /* … */ });
 
 
 app.use(express.urlencoded({extended: true})); 
 app.use(express.json());
+app.use(cors());
 // app.use(express.static(path.join(__dirname, './public')));
 
 app.use('/api/uploads', express.static(path.join(__dirname, './uploads')));
@@ -204,15 +210,15 @@ app.post('/api/articles', verifyToken, (req, res) => {
               tags.push([tag.nom, article.insertId])
             });
 
-            connection.execute(`insert into tag (nom, id_article) values ?`, [tags], (err, result)=>{
-              if(err) {
-                console.log(err);
-                res.json({error: true, msg: 'Database error!'});
-              }
-              else {
+            // connection.execute(`insert into tag (nom, id_article) values ?`, [tags], (err, result)=>{
+            //   if(err) {
+            //     console.log(err);
+            //     res.json({error: true, msg: 'Database error!'});
+            //   }
+            //   else {
                 res.status(200).json({error: false})
-              }
-            })
+              // }
+            // })
           }
         })
       }
@@ -377,15 +383,40 @@ app.post('/api/benevole', (req, res)=> {
 
 
 app.get('/api/conversations', verifyToken, (req, res)=>{
-  connection.execute(`select c.*, m.* from conversation c, message m 
-  where( ((c.id_user = ? or c.id_specialiste = ?)) and m.id_message = c.id_dernier_msg )`
-  , [req.user.id_user, req.user.id_user]
+  connection.execute(`select c.*, m.text as message, u.photo, concat(u.nom, ' ', u.prenom) as name
+  from conversation c, message m, user u
+  where( ((c.id_user = ? or c.id_specialiste = ?)) and m.id_message = c.id_dernier_msg  
+  and u.id_user <> ? and (u.id_user = c.id_user or u.id_user = c.id_specialiste ) 
+  )`
+  , [req.user.id_user, req.user.id_user, req.user.id_user]
   , (err, conversations)=>{
     if(err) res.json({error: true, msg: 'Database error!'});
     else {
-
+      conversations.map(c => c.id = c.id_specialiste+'-'+c.id_user);
+      res.json({error: false, conversations})
     }
   })
+})
+
+
+// chat 
+io.on('connection', (socket)=>{
+    // socket.emit('message', 'welcome to chat..');
+    socket.on('join', roomId => {
+        socket.join(roomId);
+    });
+    console.log(socket);
+    socket.on('chatMessage', (message)=>{
+        io.in(roomId).emit('message', message)    
+        console.log(message);    
+        // connection.execute(
+        //     `insert into messages ( text, id_sender, id_receiver) values 
+        //     ('${message.text}',${message.id_sender}, ${message.id_receiver} ) `
+        // , (err, result)=>{
+        //     if(err) console.log(err)    
+        //     else console.log(result);            
+        // } )
+    })
 })
 
 server.listen(PORT, ()=> console.log('server running on port ', PORT, '...'))
