@@ -398,25 +398,48 @@ app.get('/api/conversations', verifyToken, (req, res)=>{
   })
 })
 
+app.get('/api/messages', (req, res)=>{
+  connection.execute(`select * from message
+  where((emeteur = ? and recepteur = ?) or (emeteur = ? and recepteur = ?))`
+  , [req.query.id_user, req.query.id_specialiste, req.query.id_specialiste, req.query.id_user]
+  , (err, messages)=>{
+    if(err) res.json({error: true, msg: 'Database error!'});
+    else {
+      res.json({error: false, messages})
+    }
+  })
+})
+
 
 // chat 
-io.on('connection', (socket)=>{
-    // socket.emit('message', 'welcome to chat..');
-    socket.on('join', roomId => {
-        socket.join(roomId);
-    });
-    console.log(socket);
-    socket.on('chatMessage', (message)=>{
-        io.in(roomId).emit('message', message)    
-        console.log(message);    
-        // connection.execute(
-        //     `insert into messages ( text, id_sender, id_receiver) values 
-        //     ('${message.text}',${message.id_sender}, ${message.id_receiver} ) `
-        // , (err, result)=>{
-        //     if(err) console.log(err)    
-        //     else console.log(result);            
-        // } )
+io.on('connection', (socket, )=>{
+  let token = socket.handshake.query.token;
+  let roomID = socket.handshake.query.roomID;
+  let user = null;
+  jwt.verify(token, JWT_STRING, (err, authData) => {
+    if(err) {
+      console.log(err);
+    } 
+    else {
+      user = authData.user;
+    }
+  });
+
+  if(user){
+    socket.join(roomID);
+    socket.on('send_message', (message)=>{
+      // io.in(roomId).emit('message', message)    
+      socket.to(roomID).emit('receive_message', message);
+      connection.execute(
+      `insert into message (text, date_message, emeteur, recepteur) values (? , now(), ?, ?)`
+      , [message.text, message.emeteur, message.recepteur]
+      , (err, result)=>{
+          if(err) console.log(err)    
+          // else console.log(result.insertId);            
+      })
     })
+  }
+  
 })
 
 server.listen(PORT, ()=> console.log('server running on port ', PORT, '...'))
